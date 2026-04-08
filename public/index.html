@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExampleHR - Time Off Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .flatpickr-calendar { border-radius: 12px !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; border: 1px solid #e5e7eb !important; }
+    .flatpickr-day.selected { background: #4f46e5 !important; border-color: #4f46e5 !important; }
+    .flatpickr-day.startRange, .flatpickr-day.endRange { background: #4f46e5 !important; border-color: #4f46e5 !important; }
+    .flatpickr-day.inRange { background: #eef2ff !important; border-color: #eef2ff !important; box-shadow: -5px 0 0 #eef2ff, 5px 0 0 #eef2ff !important; }
+    .flatpickr-day:hover { background: #e0e7ff !important; border-color: #e0e7ff !important; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+  <!-- Navbar -->
+  <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </div>
+        <span class="text-lg font-semibold text-gray-900">ExampleHR</span>
+        <span class="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-medium">Time Off</span>
+      </div>
+      <div class="flex bg-gray-100 rounded-lg p-1">
+        <button onclick="showTab('employee')" id="btn-employee" class="px-4 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-gray-900 shadow-sm">Employee</button>
+        <button onclick="showTab('manager')" id="btn-manager" class="px-4 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700">Manager</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Employee View -->
+    <div id="employee-view">
+
+      <!-- Employee Selector -->
+      <div class="mb-8">
+        <div class="flex items-center gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Employee</label>
+            <select id="emp-id" onchange="resetAndLoad()" class="bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 w-52">
+              <option value="maria.garcia">Maria Garcia</option>
+              <option value="james.smith">James Smith</option>
+              <option value="laura.chen">Laura Chen</option>
+              <option value="carlos.lopez">Carlos Lopez</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Location</label>
+            <select id="loc-id" onchange="resetAndLoad()" class="bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 w-52">
+              <option value="buenos-aires">Buenos Aires</option>
+              <option value="new-york">New York</option>
+              <option value="london">London</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Balance Cards -->
+      <div id="balance-info" class="grid grid-cols-3 gap-5 mb-8">
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Total Days</span>
+            <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            </div>
+          </div>
+          <div class="text-3xl font-bold text-gray-900" id="total-days">--</div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Used</span>
+            <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+          </div>
+          <div class="text-3xl font-bold text-gray-900" id="used-days">--</div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-500">Available</span>
+            <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+          </div>
+          <div class="text-3xl font-bold text-emerald-600" id="available-days">--</div>
+        </div>
+      </div>
+
+      <!-- Two Column Layout -->
+      <div class="grid grid-cols-5 gap-6">
+
+        <!-- Request Form -->
+        <div class="col-span-2 bg-white rounded-xl border border-gray-200 p-6 relative">
+          <div id="no-balance-overlay" class="hidden absolute inset-0 z-10 bg-white/80 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center">
+            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+              <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            </div>
+            <p class="text-sm font-medium text-gray-500">Requests unavailable</p>
+            <p class="text-xs text-gray-400 mt-1">No balance found for this employee/location</p>
+          </div>
+          <h2 class="text-base font-semibold text-gray-900 mb-5">New Request</h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Date Range</label>
+              <input id="date-range" type="text" placeholder="Select dates..." readonly class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 cursor-pointer" />
+              <input id="start-date" type="hidden" />
+              <input id="end-date" type="hidden" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Type</label>
+              <select id="req-type" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                <option value="VACATION">Vacation</option>
+                <option value="SICK">Sick Leave</option>
+                <option value="PERSONAL">Personal</option>
+              </select>
+            </div>
+            <div id="days-preview" class="hidden bg-brand-50 border border-brand-200 rounded-lg px-4 py-3 text-sm text-brand-700 font-medium text-center"></div>
+            <input id="days-req" type="hidden" value="1" />
+            <button onclick="submitRequest()" class="w-full bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors">
+              Submit Request
+            </button>
+            <div id="request-result" class="hidden p-3 rounded-lg text-sm"></div>
+          </div>
+        </div>
+
+        <!-- Activity History -->
+        <div class="col-span-3 bg-white rounded-xl border border-gray-200 p-6">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-base font-semibold text-gray-900">Activity</h2>
+            <button onclick="loadActivity()" class="text-xs text-brand-600 hover:text-brand-700 font-medium">Refresh</button>
+          </div>
+          <div id="my-requests">
+            <p class="text-sm text-gray-400 text-center py-8">Loading...</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Manager View -->
+    <div id="manager-view" class="hidden">
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-base font-semibold text-gray-900">Pending Approvals</h2>
+            <p class="text-sm text-gray-500 mt-1">Review and approve time-off requests</p>
+          </div>
+          <button onclick="loadPending()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">Refresh</button>
+        </div>
+        <div id="pending-requests">
+          <p class="text-sm text-gray-400 text-center py-12">Click "Refresh" to load pending requests</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-20 right-6 z-40 flex flex-col gap-3 w-80"></div>
+
+  <!-- Error Modal -->
+  <div id="error-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeErrorModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
+      <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+      </div>
+      <h3 id="error-modal-title" class="text-lg font-semibold text-gray-900 mb-2">Error</h3>
+      <p id="error-modal-message" class="text-sm text-gray-500 mb-5"></p>
+      <button onclick="closeErrorModal()" class="w-full px-4 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors">Got it</button>
+    </div>
+  </div>
+
+  <!-- Reject Modal -->
+  <div id="reject-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeRejectModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-1">Reject Request</h3>
+      <p class="text-sm text-gray-500 mb-4">Provide a reason for the rejection. This will be visible to the employee.</p>
+      <textarea id="reject-reason" rows="3" placeholder="e.g., Team coverage is insufficient for those dates..." class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"></textarea>
+      <div class="flex justify-end gap-3 mt-4">
+        <button onclick="closeRejectModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+        <button onclick="confirmReject()" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">Reject Request</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '';
+    let rejectingRequestId = null;
+
+    function showToast(title, message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const colors = {
+        info: 'border-blue-200 bg-blue-50',
+        success: 'border-emerald-200 bg-emerald-50',
+        warning: 'border-amber-200 bg-amber-50',
+      };
+      const iconColors = {
+        info: 'text-blue-600 bg-blue-100',
+        success: 'text-emerald-600 bg-emerald-100',
+        warning: 'text-amber-600 bg-amber-100',
+      };
+      const icons = {
+        info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>',
+      };
+      const toast = document.createElement('div');
+      toast.className = `border rounded-xl p-4 shadow-lg ${colors[type]} transition-all transform translate-x-full opacity-0`;
+      toast.innerHTML = `
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${iconColors[type]}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${icons[type]}</svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-gray-900">${title}</div>
+            <div class="text-xs text-gray-600 mt-0.5">${message}</div>
+          </div>
+          <button onclick="this.closest('[class*=border]').remove()" class="text-gray-400 hover:text-gray-600 flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>`;
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+      });
+      setTimeout(() => {
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 6000);
+    }
+
+    function showError(title, message) {
+      document.getElementById('error-modal-title').textContent = title;
+      document.getElementById('error-modal-message').textContent = message;
+      document.getElementById('error-modal').classList.remove('hidden');
+    }
+
+    function closeErrorModal() {
+      document.getElementById('error-modal').classList.add('hidden');
+    }
+
+    function showTab(tab) {
+      document.getElementById('employee-view').classList.toggle('hidden', tab !== 'employee');
+      document.getElementById('manager-view').classList.toggle('hidden', tab !== 'manager');
+      const empBtn = document.getElementById('btn-employee');
+      const mgrBtn = document.getElementById('btn-manager');
+      if (tab === 'employee') {
+        empBtn.className = 'px-4 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-gray-900 shadow-sm';
+        mgrBtn.className = 'px-4 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700';
+        loadBalance();
+      } else {
+        mgrBtn.className = 'px-4 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-gray-900 shadow-sm';
+        empBtn.className = 'px-4 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700';
+        loadPending();
+      }
+    }
+
+    async function loadBalance() {
+      const empId = document.getElementById('emp-id').value;
+      const locId = document.getElementById('loc-id').value;
+      try {
+        const res = await fetch(`${API}/api/v1/balances?employeeId=${empId}&locationId=${locId}`);
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('total-days').textContent = data.totalDays;
+          document.getElementById('used-days').textContent = data.usedDays;
+          document.getElementById('available-days').textContent = data.availableDays;
+          toggleFormBlock(data.availableDays);
+          const key = `${empId}:${locId}`;
+          lastKnownBalances[key] = { totalDays: data.totalDays, usedDays: data.usedDays, availableDays: data.availableDays };
+          loadActivity();
+        } else {
+          document.getElementById('total-days').textContent = '--';
+          document.getElementById('used-days').textContent = '--';
+          document.getElementById('available-days').textContent = '--';
+          toggleFormBlock(0);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function submitRequest() {
+      const empId = document.getElementById('emp-id').value;
+      const locId = document.getElementById('loc-id').value;
+      const body = {
+        employeeId: empId,
+        locationId: locId,
+        startDate: document.getElementById('start-date').value,
+        endDate: document.getElementById('end-date').value,
+        daysRequested: parseInt(document.getElementById('days-req').value),
+        type: document.getElementById('req-type').value,
+      };
+      const resultDiv = document.getElementById('request-result');
+      try {
+        const res = await fetch(`${API}/api/v1/requests`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          resultDiv.className = 'p-3 rounded-lg text-sm bg-emerald-50 text-emerald-800 border border-emerald-200';
+          resultDiv.textContent = `Request created successfully`;
+          resultDiv.classList.remove('hidden');
+          loadBalance();
+        } else {
+          resultDiv.classList.add('hidden');
+          if (data.error === 'INSUFFICIENT_BALANCE') {
+            showError('Insufficient Balance', `You requested ${data.requested} days but only have ${data.available} days available.`);
+          } else {
+            showError('Request Failed', data.message || 'An unexpected error occurred.');
+          }
+        }
+      } catch (e) {
+        resultDiv.classList.add('hidden');
+        showError('Connection Error', 'Could not connect to the server. Please try again.');
+      }
+    }
+
+    const statusStyles = {
+      PENDING_SYNC: 'bg-amber-50 text-amber-700 border-amber-200',
+      WAITING_MANAGER_APPROVAL: 'bg-blue-50 text-blue-700 border-blue-200',
+      APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      COMPLETED: 'bg-gray-100 text-gray-600 border-gray-200',
+      REJECTED: 'bg-red-50 text-red-700 border-red-200',
+      CANCELLATION_PENDING: 'bg-orange-50 text-orange-700 border-orange-200',
+      CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
+    };
+
+    const statusLabels = {
+      PENDING_SYNC: 'Syncing',
+      WAITING_MANAGER_APPROVAL: 'Pending Approval',
+      APPROVED: 'Approved',
+      COMPLETED: 'Completed',
+      REJECTED: 'Rejected',
+      CANCELLATION_PENDING: 'Cancelling',
+      CANCELLED: 'Cancelled',
+    };
+
+    async function loadActivity() {
+      const empId = document.getElementById('emp-id').value;
+      const locId = document.getElementById('loc-id').value;
+      try {
+        const res = await fetch(`${API}/api/v1/activity?employeeId=${empId}&locationId=${locId}`);
+        const data = await res.json();
+        const container = document.getElementById('my-requests');
+        if (!data.length) {
+          container.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No activity yet</p>';
+          return;
+        }
+        let html = '<div class="space-y-3">';
+        for (const item of data) {
+          if (item.type === 'request') {
+            const r = item.data;
+            const canCancel = ['PENDING_SYNC', 'WAITING_MANAGER_APPROVAL', 'APPROVED'].includes(r.status);
+            const rejectionNote = r.status === 'REJECTED' && r.rejectionReason
+              ? `<div class="mt-2 text-xs text-red-600 bg-red-50 rounded px-3 py-1.5 border border-red-100">${r.rejectionReason}</div>`
+              : '';
+            html += `
+              <div class="p-4 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-4">
+                    <div class="text-center min-w-[3rem]">
+                      <div class="text-2xl font-bold text-gray-900">${r.daysRequested}</div>
+                      <div class="text-[10px] uppercase text-gray-400 font-medium">days</div>
+                    </div>
+                    <div>
+                      <div class="text-sm font-medium text-gray-900">${r.type.charAt(0) + r.type.slice(1).toLowerCase()}</div>
+                      <div class="text-xs text-gray-500">${r.startDate} &rarr; ${r.endDate}</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-xs font-medium px-2.5 py-1 rounded-full border ${statusStyles[r.status] || ''}">${statusLabels[r.status] || r.status}</span>
+                    ${canCancel ? `<button onclick="cancelReq('${r.id}')" class="text-xs text-red-500 hover:text-red-700 font-medium">Cancel</button>` : ''}
+                  </div>
+                </div>
+                ${rejectionNote}
+              </div>`;
+          } else if (item.type === 'sync') {
+            const s = item.data;
+            const time = new Date(s.createdAt).toLocaleString();
+            html += `
+              <div class="p-4 rounded-lg border border-blue-100 bg-blue-50/50 hover:border-blue-200 transition-colors">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-4">
+                    <div class="text-center min-w-[3rem]">
+                      <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mx-auto">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-sm font-medium text-gray-900">Balance synced from HCM</div>
+                      <div class="text-xs text-gray-500">${time}</div>
+                    </div>
+                  </div>
+                  <span class="text-xs font-medium px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">HCM Sync</span>
+                </div>
+              </div>`;
+          }
+        }
+        html += '</div>';
+        container.innerHTML = html;
+      } catch (e) {
+        document.getElementById('my-requests').innerHTML = '<p class="text-sm text-red-500 text-center py-8">Error loading activity</p>';
+      }
+    }
+
+    // Alias for backward compat
+    const loadMyRequests = loadActivity;
+
+    async function cancelReq(id) {
+      if (!confirm('Cancel this request?')) return;
+      await fetch(`${API}/api/v1/requests/${id}/cancel`, { method: 'PATCH' });
+      loadActivity();
+      loadBalance();
+    }
+
+    async function loadPending() {
+      try {
+        const res = await fetch(`${API}/api/v1/admin/requests/pending`);
+        const data = await res.json();
+        const container = document.getElementById('pending-requests');
+        if (!data.length) {
+          container.innerHTML = '<p class="text-sm text-gray-400 text-center py-12">No pending requests</p>';
+          return;
+        }
+        let html = '<div class="space-y-3">';
+        for (const r of data) {
+          html += `
+            <div class="flex items-center justify-between p-4 rounded-lg border border-gray-100">
+              <div class="flex items-center gap-5">
+                <div class="text-center min-w-[3rem]">
+                  <div class="text-2xl font-bold text-gray-900">${r.daysRequested}</div>
+                  <div class="text-[10px] uppercase text-gray-400 font-medium">days</div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-900">${r.employeeId}</div>
+                  <div class="text-xs text-gray-500">${r.locationId} &middot; ${r.startDate} &rarr; ${r.endDate}</div>
+                </div>
+                <span class="text-xs font-medium px-2 py-0.5 rounded-full ${r.isConsistentWithHcm ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">
+                  ${r.isConsistentWithHcm ? 'HCM Synced' : 'Pending Sync'}
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="approveReq('${r.id}')" class="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors">Approve</button>
+                <button onclick="rejectReq('${r.id}')" class="bg-white text-red-600 border border-red-200 px-4 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors">Reject</button>
+              </div>
+            </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+      } catch (e) {
+        document.getElementById('pending-requests').innerHTML = '<p class="text-sm text-red-500 text-center py-12">Error loading requests</p>';
+      }
+    }
+
+    async function approveReq(id) {
+      await fetch(`${API}/api/v1/admin/requests/${id}/approve`, { method: 'PATCH' });
+      loadPending();
+    }
+
+    function rejectReq(id) {
+      rejectingRequestId = id;
+      document.getElementById('reject-reason').value = '';
+      document.getElementById('reject-modal').classList.remove('hidden');
+    }
+
+    function closeRejectModal() {
+      document.getElementById('reject-modal').classList.add('hidden');
+      rejectingRequestId = null;
+    }
+
+    async function confirmReject() {
+      if (!rejectingRequestId) return;
+      const reason = document.getElementById('reject-reason').value || 'Rejected by manager';
+      await fetch(`${API}/api/v1/admin/requests/${rejectingRequestId}/reject`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      closeRejectModal();
+      loadPending();
+    }
+
+    function toggleFormBlock(available) {
+      const overlay = document.getElementById('no-balance-overlay');
+      if (available <= 0) {
+        overlay.classList.remove('hidden');
+      } else {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    function resetAndLoad() {
+      // Clear date picker
+      const fp = document.getElementById('date-range')._flatpickr;
+      if (fp) fp.clear();
+      document.getElementById('start-date').value = '';
+      document.getElementById('end-date').value = '';
+      document.getElementById('days-req').value = '1';
+      document.getElementById('days-preview').classList.add('hidden');
+      document.getElementById('req-type').selectedIndex = 0;
+      document.getElementById('request-result').classList.add('hidden');
+      loadBalance();
+    }
+
+    // Flatpickr date range picker
+    function countBusinessDays(start, end) {
+      let count = 0;
+      const cur = new Date(start);
+      while (cur <= end) {
+        const day = cur.getDay();
+        if (day !== 0 && day !== 6) count++;
+        cur.setDate(cur.getDate() + 1);
+      }
+      return count;
+    }
+
+    flatpickr('#date-range', {
+      mode: 'range',
+      minDate: new Date().fp_incr(1),
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'M j, Y',
+      disableMobile: true,
+      onChange: function(selectedDates) {
+        const preview = document.getElementById('days-preview');
+        if (selectedDates.length === 2) {
+          const start = selectedDates[0];
+          const end = selectedDates[1];
+          document.getElementById('start-date').value = start.toISOString().split('T')[0];
+          document.getElementById('end-date').value = end.toISOString().split('T')[0];
+          const bizDays = countBusinessDays(start, end);
+          document.getElementById('days-req').value = bizDays;
+          preview.textContent = `${bizDays} business day${bizDays !== 1 ? 's' : ''} selected`;
+          preview.classList.remove('hidden');
+        } else {
+          preview.classList.add('hidden');
+        }
+      },
+    });
+
+    // Auto-load on start
+    loadBalance();
+
+    // WebSocket real-time updates
+    const socket = io();
+
+    const lastKnownBalances = {};
+
+    socket.on('balance:updated', (data) => {
+      const empId = document.getElementById('emp-id').value;
+      const locId = document.getElementById('loc-id').value;
+      const key = `${data.employeeId}:${data.locationId}`;
+      const prev = lastKnownBalances[key];
+
+      // Only toast if balance actually changed
+      if (prev && (prev.totalDays !== data.totalDays || prev.usedDays !== data.usedDays || prev.availableDays !== data.availableDays)) {
+        showToast(
+          'Balance Updated via HCM',
+          `${data.employeeId} @ ${data.locationId} — Available: ${data.availableDays} days`,
+          'info',
+        );
+      }
+
+      lastKnownBalances[key] = { totalDays: data.totalDays, usedDays: data.usedDays, availableDays: data.availableDays };
+
+      if (data.employeeId === empId && data.locationId === locId) {
+        if (data.totalDays !== undefined) document.getElementById('total-days').textContent = data.totalDays;
+        if (data.usedDays !== undefined) document.getElementById('used-days').textContent = data.usedDays;
+        if (data.availableDays !== undefined) {
+          document.getElementById('available-days').textContent = data.availableDays;
+          toggleFormBlock(data.availableDays);
+        }
+      }
+    });
+
+    socket.on('request:updated', (data) => {
+      const eventLabels = {
+        created: 'Request Created',
+        synced: 'HCM Confirmed',
+        approved: 'Request Approved',
+        rejected: 'Request Rejected',
+        cancelled: 'Request Cancelled',
+        cancellation_pending: 'Cancellation Initiated',
+      };
+      const eventTypes = {
+        created: 'info',
+        synced: 'success',
+        approved: 'success',
+        rejected: 'warning',
+        cancelled: 'info',
+        cancellation_pending: 'warning',
+      };
+      if (data.event) {
+        showToast(
+          eventLabels[data.event] || 'Request Updated',
+          `${data.employeeId} — ${data.daysRequested} days (${data.status})`,
+          eventTypes[data.event] || 'info',
+        );
+      }
+      loadActivity();
+      loadPending();
+    });
+  </script>
+</body>
+</html>

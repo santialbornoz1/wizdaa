@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.db
+*.db-wal
+*.db-shm
+*.rdb
+coverage/
+.env
+PROMPT.md
+data/
+.claude/

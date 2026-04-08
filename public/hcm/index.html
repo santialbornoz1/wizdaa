@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HCM Mock - Source of Truth</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            hcm: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
+
+  <!-- Navbar -->
+  <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-hcm-600 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+        </div>
+        <span class="text-lg font-semibold">HCM Mock</span>
+        <span class="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full font-medium">Source of Truth</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="status-badge" class="flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-hcm-600/20 text-hcm-500">
+          <span class="w-1.5 h-1.5 bg-hcm-500 rounded-full animate-pulse"></span>
+          ONLINE
+        </span>
+        <button onclick="toggleDowntime()" id="downtime-btn" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-900/50 text-red-400 hover:bg-red-900/80 transition-colors border border-red-800/50">
+          Toggle Downtime
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+
+    <!-- Balance Grid -->
+    <div>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Employee Balances</h2>
+        <button onclick="loadStatus()" class="text-xs text-hcm-500 hover:text-hcm-400 font-medium">Refresh</button>
+      </div>
+      <div id="balances-grid" class="grid grid-cols-2 gap-4">
+        <p class="text-gray-600 col-span-2 text-center py-8">Loading...</p>
+      </div>
+    </div>
+
+    <!-- Actions Row -->
+    <div class="grid grid-cols-2 gap-6">
+
+      <!-- Bonus Simulator -->
+      <div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Anniversary Bonus Simulator</h2>
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Employee</label>
+              <select id="bonus-emp" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-hcm-500 focus:border-hcm-500">
+                <option value="maria.garcia">Maria Garcia</option>
+                <option value="james.smith">James Smith</option>
+                <option value="laura.chen">Laura Chen</option>
+                <option value="carlos.lopez">Carlos Lopez</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Location</label>
+              <select id="bonus-loc" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-hcm-500 focus:border-hcm-500">
+                <option value="buenos-aires">Buenos Aires</option>
+                <option value="new-york">New York</option>
+                <option value="london">London</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Bonus Days</label>
+            <input id="bonus-days" type="number" value="5" min="1" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-hcm-500 focus:border-hcm-500" />
+          </div>
+          <button onclick="addBonus()" class="w-full bg-hcm-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-hcm-700 transition-colors">
+            Add Bonus Days
+          </button>
+          <div id="bonus-result" class="hidden p-3 rounded-lg text-sm"></div>
+        </div>
+      </div>
+
+      <!-- Batch Sync -->
+      <div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Batch Sync to ExampleHR</h2>
+        <p class="text-sm text-gray-500 mb-4">Push all HCM balances to ExampleHR via streaming batch endpoint. This simulates how the real HCM would periodically sync data.</p>
+        <button onclick="triggerBatchSync()" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+          Send Batch Sync
+        </button>
+        <div id="batch-result" class="hidden mt-3 p-3 rounded-lg text-sm"></div>
+      </div>
+
+    </div>
+
+    <!-- Transaction Log -->
+    <div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
+      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Transaction Log</h2>
+      <div id="tx-log" class="text-sm">
+        <p class="text-gray-600 text-center py-8">Loading...</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const HCM_API = '';
+    let isDown = false;
+
+    async function loadStatus() {
+      try {
+        const res = await fetch(`${HCM_API}/hcm/admin/status`);
+        const data = await res.json();
+        isDown = data.isDown;
+
+        const badge = document.getElementById('status-badge');
+        if (isDown) {
+          badge.innerHTML = '<span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span> OFFLINE';
+          badge.className = 'flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-red-600/20 text-red-400';
+        } else {
+          badge.innerHTML = '<span class="w-1.5 h-1.5 bg-hcm-500 rounded-full animate-pulse"></span> ONLINE';
+          badge.className = 'flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-hcm-600/20 text-hcm-500';
+        }
+
+        const grid = document.getElementById('balances-grid');
+        if (!data.balances.length) {
+          grid.innerHTML = '<p class="text-gray-600 col-span-2 text-center py-8">No balances</p>';
+        } else {
+          grid.innerHTML = data.balances.map(b => `
+            <div class="bg-gray-900 rounded-xl border border-gray-800 p-5 flex items-center justify-between">
+              <div>
+                <div class="text-sm font-semibold text-gray-200">${b.employeeId}</div>
+                <div class="text-xs text-gray-500 mt-0.5">${b.locationId}</div>
+              </div>
+              <div class="flex items-center gap-5 text-right">
+                <div>
+                  <div class="text-xl font-bold text-gray-300">${b.totalDays}</div>
+                  <div class="text-[10px] uppercase text-gray-600">Total</div>
+                </div>
+                <div>
+                  <div class="text-xl font-bold text-orange-400">${b.usedDays}</div>
+                  <div class="text-[10px] uppercase text-gray-600">Used</div>
+                </div>
+                <div>
+                  <div class="text-xl font-bold text-hcm-500">${b.availableDays}</div>
+                  <div class="text-[10px] uppercase text-gray-600">Available</div>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        const txLog = document.getElementById('tx-log');
+        if (!data.transactions.length) {
+          txLog.innerHTML = '<p class="text-gray-600 text-center py-8">No transactions yet</p>';
+        } else {
+          const typeStyles = {
+            RESERVE: 'bg-orange-900/30 text-orange-400 border-orange-800/50',
+            ROLLBACK: 'bg-hcm-900/30 text-hcm-400 border-hcm-800/50',
+            BONUS: 'bg-blue-900/30 text-blue-400 border-blue-800/50',
+          };
+          let html = '<div class="space-y-2">';
+          for (const tx of [...data.transactions].reverse()) {
+            html += `
+              <div class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-800/50 transition-colors">
+                <div class="flex items-center gap-3">
+                  <span class="text-xs font-medium px-2 py-0.5 rounded border ${typeStyles[tx.type] || ''}">${tx.type}</span>
+                  <span class="text-sm text-gray-300">${tx.employeeId} <span class="text-gray-600">@</span> ${tx.locationId}</span>
+                </div>
+                <div class="flex items-center gap-4">
+                  <span class="text-sm font-medium text-gray-400">${tx.days} days</span>
+                  <span class="text-xs text-gray-600 font-mono">${new Date(tx.timestamp).toLocaleTimeString()}</span>
+                </div>
+              </div>`;
+          }
+          html += '</div>';
+          txLog.innerHTML = html;
+        }
+      } catch (e) {
+        document.getElementById('balances-grid').innerHTML = '<p class="text-red-500 col-span-2 text-center py-8">Error connecting to HCM</p>';
+      }
+    }
+
+    async function toggleDowntime() {
+      isDown = !isDown;
+      await fetch(`${HCM_API}/hcm/admin/downtime`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: isDown }),
+      });
+      loadStatus();
+    }
+
+    async function addBonus() {
+      const empId = document.getElementById('bonus-emp').value;
+      const locId = document.getElementById('bonus-loc').value;
+      const days = parseInt(document.getElementById('bonus-days').value);
+      const resultDiv = document.getElementById('bonus-result');
+      try {
+        const res = await fetch(`${HCM_API}/hcm/api/v1/balances/${empId}/${locId}/bonus`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days, reason: 'Work Anniversary Bonus' }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          resultDiv.className = 'mt-3 p-3 rounded-lg text-sm bg-hcm-900/30 text-hcm-400 border border-hcm-800/50';
+          resultDiv.textContent = `+${days} days added. New balance: ${data.newBalance}`;
+        } else {
+          resultDiv.className = 'mt-3 p-3 rounded-lg text-sm bg-red-900/30 text-red-400 border border-red-800/50';
+          resultDiv.textContent = data.message || 'Error';
+        }
+        resultDiv.classList.remove('hidden');
+        loadStatus();
+      } catch (e) {
+        resultDiv.className = 'mt-3 p-3 rounded-lg text-sm bg-red-900/30 text-red-400 border border-red-800/50';
+        resultDiv.textContent = 'Error connecting to HCM';
+        resultDiv.classList.remove('hidden');
+      }
+    }
+
+    async function triggerBatchSync() {
+      const resultDiv = document.getElementById('batch-result');
+      try {
+        const balRes = await fetch(`${HCM_API}/hcm/api/v1/balances/all`);
+        const balances = await balRes.json();
+        const syncRes = await fetch('http://localhost:3000/api/v1/sync/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(balances),
+        });
+        const data = await syncRes.json();
+        resultDiv.className = 'mt-3 p-3 rounded-lg text-sm bg-blue-900/30 text-blue-400 border border-blue-800/50';
+        resultDiv.textContent = `Sent ${balances.length} records. ${data.message}`;
+        resultDiv.classList.remove('hidden');
+      } catch (e) {
+        resultDiv.className = 'mt-3 p-3 rounded-lg text-sm bg-red-900/30 text-red-400 border border-red-800/50';
+        resultDiv.textContent = 'Error triggering batch sync';
+        resultDiv.classList.remove('hidden');
+      }
+    }
+
+    loadStatus();
+    setInterval(loadStatus, 5000);
+  </script>
+</body>
+</html>
